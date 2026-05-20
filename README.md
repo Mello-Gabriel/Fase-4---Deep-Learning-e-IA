@@ -115,7 +115,7 @@ Modelo + scaler + metadata são carregados **uma vez no startup** via `lifespan`
 | `/predict` | POST | body: `{"closes": [floats com ≥60 valores em R$]}` → próximo close previsto. |
 | `/predict/{symbol}` | GET | baixa histórico do símbolo via yfinance e roda predict (demo). |
 | `/metrics` | GET | métricas Prometheus (latência, contadores, GC, processo). |
-| `/docs` | GET | Swagger interativo (ótimo p/ vídeo). |
+| `/docs` | GET | Swagger interativo. |
 
 ### Exemplo
 
@@ -153,7 +153,7 @@ Validação:
 2. No Coolify (Hostinger), criar nova *Application* tipo **Docker Compose**.
 3. Apontar para o repo, branch `main`, arquivo `docker-compose.yml`.
 4. Porta exposta: 8000. Domínio: configurar no painel do Hostinger.
-5. Deploy → URL pública (gravar no README e mostrar no vídeo).
+5. Iniciar o deploy pelo painel.
 
 
 ## 7. Monitoramento e escalabilidade (Requisito 5)
@@ -164,4 +164,3 @@ Validação:
 - **Logging**: `logging` estruturado, cada `/predict` emite `predict ok | n=60 | 18.4ms`.
 - **Escalabilidade**: container stateless → escala horizontal; `uvicorn --workers 2` no Dockerfile; modelo carregado 1× por worker; healthcheck p/ orquestrador reiniciar.
 
-Para dashboards completos, basta apontar um Prometheus para `/metrics` e plugar Grafana.

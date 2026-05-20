@@ -1,0 +1,3 @@
+Repositório: https://github.com/Mello-Gabriel/Fase-4---Deep-Learning-e-IA/tree/apresentacao
+Vídeo:
+API: http://w5bsgt47ldwvyr1sshujwh5n.187.127.254.64.sslip.io/docs
