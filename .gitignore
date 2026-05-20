@@ -16,3 +16,7 @@ __pycache__/
 data/
 reports/
 *.egg-info/
+.vscode
+.mypy_cache
+.vscode/launch.json
+.vscode/settings.json

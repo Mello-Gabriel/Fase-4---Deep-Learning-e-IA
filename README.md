@@ -10,17 +10,14 @@ Ação alvo: **SUZB3.SA** (Suzano Papel e Celulose, B3).
 
 ```
 .
-├── src/
-│   ├── data.py        # download yfinance, MinMaxScaler, janela deslizante (N=60)
-│   ├── model.py       # arquitetura LSTM (2× LSTM(50) + Dropout + Dense)
-│   ├── train.py       # CLI de treino → models/, reports/
-│   ├── evaluate.py    # MAE / RMSE / MAPE + baseline naive
-│   └── predict.py     # função reutilizável de inferência
+├── MLET4TC.ipynb      # notebook principal: dados, modelo, treino, avaliação, artefatos
 ├── api/
 │   ├── main.py        # FastAPI app (lifespan, /health, /metadata, /predict, /metrics)
 │   └── schemas.py     # Pydantic
-├── models/            # lstm_stock.keras + scaler.pkl + metadata.json (geradas pelo train)
-├── reports/           # learning_curve.png + pred_vs_real.png
+├── src/
+│   └── predict.py     # função reutilizável de inferência (usada pela API)
+├── models/            # lstm_stock.keras + scaler.pkl + metadata.json (gerados pelo notebook)
+├── reports/           # learning_curve.png + pred_vs_real.png (gerados pelo notebook)
 ├── tests/             # pytest (data, evaluate, api)
 ├── Dockerfile
 ├── docker-compose.yml
@@ -45,13 +42,16 @@ Ação alvo: **SUZB3.SA** (Suzano Papel e Celulose, B3).
 uv sync
 ```
 
-### 3.2 Treinar o modelo (gera `models/` e `reports/`)
+### 3.2 Treinar o modelo (executar o notebook)
+
+Abrir e executar todas as células do **`MLET4TC.ipynb`** — o notebook realiza o pipeline completo e salva os artefatos em `models/` e os gráficos em `reports/`.
 
 ```bash
-uv run python -m src.train --symbol SUZB3.SA --epochs 50
+uv run jupyter lab MLET4TC.ipynb
+# ou via VS Code: abrir o arquivo e "Run All"
 ```
 
-Hiperparâmetros expostos por CLI (`--window`, `--units`, `--dropout`, `--lr`, `--batch-size`, `--patience`, `--split`). Default reproduz a configuração base do desafio.
+O notebook usa `EarlyStopping(patience=10)` com limite de 100 épocas; em CPU a execução converge em torno de 36 épocas (~1 min).
 
 ### 3.3 Subir a API local
 
@@ -75,27 +75,29 @@ curl http://localhost:8000/health
 
 ## 4. Pipeline (Requisitos 1–3 do PDF)
 
-| Etapa | Arquivo | Decisões |
-|-------|---------|----------|
-| Coleta | `src/data.py::download_close` | `yf.download("SUZB3.SA", 2018‑01‑01 → 2025‑12‑31)`, só `Close`, `dropna`, cache em `data/`. |
-| Normalização | `MinMaxScaler(0,1)` | `fit_transform` **só no treino**; `transform` no teste. Sem vazamento. |
-| Split | `build_dataset` | **Temporal** (80/20), sem `shuffle`. Teste inclui os últimos 60 pontos do treino para alimentar a primeira janela. |
-| Janela | `make_windows`, N=60 | Cada amostra = 60 dias passados → próximo close. Shape `(samples, 60, 1)`. |
-| Modelo | `src/model.py::build_lstm` | `Sequential([LSTM(50, return_sequences=True), Dropout(0.2), LSTM(50), Dropout(0.2), Dense(25, relu), Dense(1)])` + Adam + MSE. |
-| Treino | `src/train.py` | `validation_split=0.1` (últimos 10% do treino, sem shuffle), `EarlyStopping(patience=10, restore_best_weights=True)`, `ModelCheckpoint(save_best_only)`. |
-| Avaliação | `src/evaluate.py` | MAE, RMSE, MAPE **na escala real** (inverte o scaler) + baseline ingênuo (`ŷ_t = y_{t-1}`). |
-| Artefatos | `models/` | `lstm_stock.keras` + `scaler.pkl` + `metadata.json` (symbol, window, features, datas, métricas, hiperparâmetros, `last_window_real` p/ demo). |
+Todo o pipeline de ML está no `MLET4TC.ipynb`, organizado nas seções abaixo:
+
+| Etapa | Seção do notebook | Decisões |
+|-------|-------------------|----------|
+| Coleta | §4 `download_close` | `yf.download("SUZB3.SA", 2018‑01‑01 → 2025‑12‑31)`, só `Close`, `dropna`, cache em `data/`. |
+| Normalização | §6 `build_dataset` | `MinMaxScaler(0,1)` — `fit_transform` **só no treino**; `transform` no teste. Sem vazamento. |
+| Split | §6 `build_dataset` | **Temporal** (80/20), sem `shuffle`. Teste herda os últimos 60 pontos do treino para alimentar a primeira janela. |
+| Janela deslizante | §5 `make_windows`, N=60 | Cada amostra = 60 dias passados → próximo close. Shape `(samples, 60, 1)`. |
+| Modelo | §7 `build_lstm` | `Sequential([LSTM(50, return_sequences=True), Dropout(0.2), LSTM(50), Dropout(0.2), Dense(25, relu), Dense(1)])` + Adam + MSE. |
+| Treino | §9.1–9.2 | `validation_split=0.1`, `EarlyStopping(patience=10, restore_best_weights=True)`, `ModelCheckpoint(save_best_only)`. Max 100 épocas; early stop em ~36. |
+| Avaliação | §8 + §9.3 | MAE, RMSE, MAPE **na escala real** (inverte o scaler) + baseline ingênuo (`ŷ_t = y_{t-1}`). Plots salvos em `reports/`. |
+| Artefatos | §9.4 | `lstm_stock.keras` + `scaler.pkl` + `metadata.json` (symbol, window, features, datas, métricas, hiperparâmetros, `last_window_real` p/ demo). |
 
 ### 4.1 Métricas obtidas no teste
 
-> Resultado de uma execução de referência (treino com 50 epochs no histórico 2018‑01‑01 → 2025‑12‑31). Reproduza rodando `src.train` — números variam levemente por inicialização.
+> Resultado da execução de referência do `MLET4TC.ipynb` (histórico 2018‑01‑01 → 2025‑12‑31, EarlyStopping em época 26). Números variam levemente por inicialização aleatória.
 
 | Modelo | MAE (R$) | RMSE (R$) | MAPE (%) |
 |--------|----------|-----------|----------|
-| LSTM (2× 50 + Dropout) | 1.15 | 1.54 | 2.08 |
+| LSTM (2× 50 + Dropout) | 1.1595 | 1.5877 | 2.0998 |
 | Baseline ingênuo (amanhã = hoje) | 0.55 | 0.80 | 1.02 |
 
-> **Observação honesta para a defesa**: em séries de preço diário, o baseline "amanhã ≈ hoje" é dificílimo de bater porque o melhor preditor de muito curto prazo é o próprio último valor (random walk). O LSTM ainda entrega previsão estável com MAPE ≈ 2%, mas para o vídeo vale citar essa limitação: melhorias plausíveis envolvem horizonte maior (5/10 dias à frente em vez de 1), features adicionais (volume, indicadores técnicos) e janela maior.
+
 
 ### 4.2 Plots (em `reports/`)
 
@@ -104,7 +106,7 @@ curl http://localhost:8000/health
 
 ## 5. API (Requisito 4)
 
-Modelo + scaler + metadata são carregados **uma vez no startup** via `lifespan` do FastAPI. Cada request reusa o modelo carregado em memória.
+Modelo + scaler + metadata são carregados **uma vez no startup** via `lifespan` do FastAPI. Cada request reusa o modelo carregado em memória. A inferência é implementada em `src/predict.py`, reutilizada pela API.
 
 | Endpoint | Método | Descrição |
 |----------|--------|-----------|
@@ -153,7 +155,6 @@ Validação:
 4. Porta exposta: 8000. Domínio: configurar no painel do Hostinger.
 5. Deploy → URL pública (gravar no README e mostrar no vídeo).
 
-> **Importante p/ o vídeo**: o estudo (`07-DOCKER-E-DEPLOY-NUVEM.md`) cita Render/Fly só como exemplo genérico — a decisão deste projeto é **Coolify rodando na VPS Hostinger**, escolhida por dar controle total sobre o container e domínio próprio.
 
 ## 7. Monitoramento e escalabilidade (Requisito 5)
 
@@ -163,25 +164,4 @@ Validação:
 - **Logging**: `logging` estruturado, cada `/predict` emite `predict ok | n=60 | 18.4ms`.
 - **Escalabilidade**: container stateless → escala horizontal; `uvicorn --workers 2` no Dockerfile; modelo carregado 1× por worker; healthcheck p/ orquestrador reiniciar.
 
-Para dashboards completos, basta apontar um Prometheus para `/metrics` e plugar Grafana — config exemplo em `ESTUDO-TECH-CHALLENGE/08-MONITORAMENTO.md`.
-
-## 8. Roteiro do vídeo (5–10 min)
-
-1. **Abertura (30s)** — apresentar você + objetivo: "LSTM para prever o fechamento da Suzano (SUZB3) servida via API."
-2. **Dados e janela (~1min)** — abrir `src/data.py`, mostrar yfinance, `MinMaxScaler` apenas no treino (citar vazamento), `make_windows(N=60)` → `(samples, 60, 1)`.
-3. **Modelo (~1min)** — `src/model.py`: 2 camadas LSTM(50) + Dropout(0.2) + Dense(25) + Dense(1), Adam + MSE. Por que LSTM: gates resolvem vanishing gradient da RNN simples.
-4. **Treino e métricas (~1min)** — rodar (ou mostrar log já capturado) `uv run python -m src.train --symbol SUZB3.SA`. Exibir `reports/learning_curve.png` e `reports/pred_vs_real.png`. Citar MAE ≈ R$1.15, MAPE ≈ 2% e comparar honestamente com o baseline ingênuo.
-5. **API ao vivo (~2min)** — `uv run uvicorn api.main:app --reload`. Abrir `http://localhost:8000/docs`. Disparar `GET /health`, `GET /metadata` (mostra métricas treinadas), `POST /predict` colando os 60 últimos closes (ou o array de `last_window_real` do `metadata.json`). Mostrar `inference_ms` na resposta.
-6. **Monitoramento (~30s)** — `GET /metrics`, apontar `http_request_duration_seconds`, `process_resident_memory_bytes`.
-7. **Docker / deploy (~1min)** — abrir `Dockerfile` e `docker-compose.yml`, citar `--workers 2`, healthcheck. Mostrar URL pública do Coolify + curl no `/health` em produção.
-8. **Encerramento (30s)** — limitações (1 dia à frente, univariado, baseline forte) e próximos passos (multivariado, horizonte maior, monitorar drift).
-
-## 9. Mapa rápido para a banca
-
-| Requisito do PDF | Onde está |
-|------------------|-----------|
-| 1. Coleta e pré-processamento | `src/data.py`, cache `data/` |
-| 2. Modelo LSTM + tuning + métricas | `src/model.py`, `src/train.py`, `src/evaluate.py`, `reports/*.png` |
-| 3. Salvar modelo | `models/lstm_stock.keras` + `models/scaler.pkl` + `models/metadata.json` |
-| 4. API + Docker + deploy | `api/main.py`, `Dockerfile`, `docker-compose.yml`, Coolify (Hostinger) |
-| 5. Monitoramento + escalabilidade | `/metrics` (Prometheus), `inference_ms`, `--workers 2`, healthcheck, app stateless |
+Para dashboards completos, basta apontar um Prometheus para `/metrics` e plugar Grafana.

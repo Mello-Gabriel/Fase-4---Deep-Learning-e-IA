@@ -1,31 +1,3 @@
-"""
-============================================================================
-ARQUIVO: api/schemas.py
-PAPEL  : Definir os "formatos" de entrada e saída da API web usando Pydantic.
-============================================================================
-
-O QUE É PYDANTIC E POR QUE USAMOS?
-----------------------------------
-Pydantic é uma biblioteca que valida dados a partir de classes. A gente
-declara "este endpoint recebe um JSON com a chave `closes` que é uma lista
-de números" e o Pydantic:
-
-    - Recusa requisições no formato errado (com erro 422 automaticamente).
-    - Converte tipos quando dá (string "12.5" vira float 12.5).
-    - Gera a documentação interativa do FastAPI (no Swagger em /docs).
-
-Em resumo: descreve UMA vez o formato, ganha validação + documentação
-de graça.
-
-CADA CLASSE AQUI = UM "CONTRATO" DA API
----------------------------------------
-Para cada rota da API, há dois contratos possíveis:
-    - "Request"  : o que a rota ESPERA receber (no corpo do POST).
-    - "Response" : o que a rota PROMETE devolver (em JSON).
-
-Quem chama a API só precisa olhar essas classes para saber o formato.
-"""
-
 from __future__ import annotations
 
 from typing import Any
