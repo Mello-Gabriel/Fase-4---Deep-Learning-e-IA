@@ -1,0 +1,18 @@
+COMPUTATIONAL VISION
+GENERATIVE AI
+NLP
+REDES NEURAIS E DEEP LEARNING
+.claude
+.venv
+.obsidian
+ESTUDO-TECH-CHALLENGE
+REPOSITÓRIO AULAS
+CLAUDE.md
+
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+data/
+reports/
+*.egg-info/

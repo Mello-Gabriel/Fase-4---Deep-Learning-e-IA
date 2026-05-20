@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.git/
+.gitignore
+.claude/
+.obsidian/
+data/
+reports/
+tests/
+notebooks/
+ESTUDO-TECH-CHALLENGE/
+REDES NEURAIS E DEEP LEARNING/
+NLP/
+GENERATIVE AI/
+COMPUTATIONAL VISION/
+REPOSITÓRIO AULAS/
+*.mp4
+*.pdf
+*.md
+!README.md
